@@ -14,36 +14,29 @@
    #pragma zp_reserve(0x2B) // MODE  $00=XAM, $7F=STOR, $AE=BLOCK XAM
 #endif
 
-#ifdef APPLE1
-   // APPLE1   
-   const word WOZMON    = 0xFF1F;      // enters monitor
-   const word ECHO      = 0xFFEF;      // output ascii character in A (A not destroyed)
-   const word PRBYTE    = 0xFFDC;      // print hex byte in A (A destroyed)
-   const word KEY_DATA  = 0xd010;      // read key
-   const word KEY_CTRL  = 0xd011;      // control port
-   const word TERM_DATA = 0xd012;      // write ascii
-   const word TERM_CTRL = 0xd013;      // control port
-   const word INBUFFER  = 0x0200;      // woz monitor input buffer
-   const word INBUFSIZE = 0x80;        // woz monitor input buffer size
-#else
-   // VIC20
-   const word ECHO      = 0xFFD2;       // chrout routine in kernal rom
-   const word GETIN     = 0xFFE4;       // GETIN keyboard read routine
-#endif
+// APPLE1   
+const word WOZMON    = 0xFF1F;      // enters monitor
+const word ECHO      = 0xFFEF;      // output ascii character in A (A not destroyed)
+const word PRBYTE    = 0xFFDC;      // print hex byte in A (A destroyed)
+const word KEY_DATA  = 0xd010;      // read key
+const word KEY_CTRL  = 0xd011;      // control port
+const word TERM_DATA = 0xd012;      // write ascii
+const word TERM_CTRL = 0xd013;      // control port
+const word INBUFFER  = 0x0200;      // woz monitor input buffer
+const word INBUFSIZE = 0x80;        // woz monitor input buffer size
 
 // prints a hex byte using the WOZMON routine
 void woz_print_hex(byte c) {
-   #ifdef APPLE1
-      asm {
-         lda c
-         jsr PRBYTE
-      };
-   #else
-      asm {
-         lda c
-         jsr ECHO
-      };
-   #endif
+   asm {
+      lda c
+      jsr PRBYTE
+   };
+}
+
+// print hex word
+void woz_print_hexword(word w) {
+   woz_print_hex(*((byte *)&w+1));
+   woz_print_hex(*((byte *)&w));
 }
 
 // puts a character on the apple1 screen using the WOZMON routine
@@ -62,68 +55,108 @@ void woz_puts(byte *s) {
 
 // returns to WOZMON prompt
 void woz_mon() {
-   #ifdef APPLE1
-      asm {
-         jmp WOZMON
-      }
-   #endif
+   asm {
+      jmp WOZMON
+   }
 }
 
 // returns nonzero if a key has been pressed
-inline byte apple1_iskeypressed() {
-   #ifdef APPLE1
-      return PEEK(KEY_CTRL) & 0x80;
-   #else
-      return 0;
-   #endif
+inline byte apple1_iskeypressed() {   
+   return PEEK(KEY_CTRL) & 0x80;
 }
 
 // blocking keyboard read
 // reads a key from the apple-1 keyboard
 byte apple1_getkey() {
-   #ifdef APPLE1
-      asm {
-         __wait:
-         lda KEY_CTRL
-         bpl __wait
-      }
-      return PEEK(KEY_DATA) & 0x7f;
-   #else
-      byte key;
-      byte const *keyptr = &key;
-      kickasm(uses keyptr, uses GETIN) {{
-         __wait:
-         jsr GETIN
-         cmp #0
-         beq __wait
-         sta keyptr
-      }}
-      return key;
-   #endif
+   asm {
+      __wait:
+      lda KEY_CTRL
+      bpl __wait
+   }
+   return PEEK(KEY_DATA) & 0x7f;
 }
 
 // non blocking keyboard read
 // reads a key and return 0 if no key is pressed
 byte apple1_readkey() {
-   #ifdef APPLE1
-      if((PEEK(KEY_CTRL) & 0x80)==0) return 0;
-      else return PEEK(KEY_DATA) & 0x7f;
-   #else
-      byte key;
-      byte const *keyptr = &key;
-      kickasm(uses keyptr, uses GETIN) {{
-         jsr GETIN
-         cmp #0
-         bne __keypress
-         lda #0
-         __keypress:
-         sta keyptr
-      }}
-      return key;
-   #endif
+   if((PEEK(KEY_CTRL) & 0x80)==0) return 0;
+   else return PEEK(KEY_DATA) & 0x7f;
 }
 
-#ifdef APPLE1
+void apple1_input_line(byte *buffer, byte max) {
+   byte x=0;
+
+   while(1) {
+      byte c = apple1_getkey();
+      buffer[x] = c;
+      if(c==13) {
+         // RETURN ends input
+         break;
+      }
+      else if(c==27) {
+         // ESC clears the string
+         x=0;
+         break;
+      }
+      else if(c==8 || c=='_') {
+         // BACKSPACE
+         if(x != 0) {
+            woz_putc('_');
+            x--;
+         }
+      }
+      else {
+         // character input
+         if(x<max) {
+            woz_putc(c);
+            x++;
+         }
+      }
+   }
+   buffer[x]=0;
+}
+
+#ifndef INPUT_LINE_PROMPT_CHAR
+#define INPUT_LINE_PROMPT_CHAR '>'
+#endif 
+
+void apple1_input_line_prompt(byte *buffer, byte max) {
+   byte x=0;
+
+   woz_putc(INPUT_LINE_PROMPT_CHAR);
+
+   while(1) {
+      byte c = apple1_getkey();
+      buffer[x] = c;
+      if(c==13) {
+         // RETURN ends input
+         break;
+      }
+      else if(c==27) {
+         // ESC clears the string
+         x=0;
+         break;
+      }
+      else if(c==8 || c=='_') {
+         // BACKSPACE
+         if(x != 0) {
+            x--;
+            buffer[x] = 0;
+            woz_putc('\r');
+            woz_putc(INPUT_LINE_PROMPT_CHAR);
+            woz_puts(buffer);
+         }
+      }
+      else {
+         // character input
+         if(x<max) {
+            woz_putc(c);
+            x++;
+         }
+      }
+   }
+   buffer[x]=0;
+}
 
 #include <stdlib.h> // for memcpy
 
@@ -136,6 +169,5 @@ inline void apple1_eprom_init() {
    // copy the initializaton data from ROM to lowram where "Data" segment is allocated
    memcpy((byte *)LOWRAM_START, (byte *)DATAINCODE, LOWRAM_SIZE);
 }
-#endif
 
 #endif

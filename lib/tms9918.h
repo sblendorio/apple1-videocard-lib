@@ -1,5 +1,8 @@
 #ifndef TMS9918_H
 #define TMS9918_H
+
+#define TMS9918 1
+
 // TODO a bitmapped text writing routine (double size ecc)
 // TODO console like text output in screen 2
 // TODO more fonts (C64 and PET/VIC20)
@@ -15,11 +18,11 @@
 #include "utils.h"
 
 #ifdef APPLE1
-   const byte *VDP_DATA = (byte *) 0xCC00;       // TMS9918 data port (VRAM)
-   const byte *VDP_REG  = (byte *) 0xCC01;       // TMS9918 register port (write) or status (read)
+   byte *const VDP_DATA = (byte *) 0xCC00;       // TMS9918 data port (VRAM)
+   byte *const VDP_REG  = (byte *) 0xCC01;       // TMS9918 register port (write) or status (read)
 #else
-   const byte *VDP_DATA = (byte *) 0xA000;       // TMS9918 data port (VRAM)
-   const byte *VDP_REG  = (byte *) 0xA001;       // TMS9918 register port (write) or status (read)
+   byte *const VDP_DATA = (byte *) 0xA000;       // TMS9918 data port (VRAM)
+   byte *const VDP_REG  = (byte *) 0xA001;       // TMS9918 register port (write) or status (read)
 #endif
 
 // control port bits

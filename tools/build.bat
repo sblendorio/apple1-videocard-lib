@@ -1,19 +1,19 @@
 @rem === BUILD SCRIPT ===
 
-@SET TARGET=%1
+@SET FNAME=%1
 @SET TMS9918=..\..
 
-@echo ======================== VIC20 ===================================================
-call kickc -includedir %TMS9918%\lib -targetdir %TMS9918%\kickc\ -t vic20_8k %TARGET%.c -o out\%TARGET%_vic20.prg -e
-copy out\%TARGET%.prg out\%TARGET%_vic20.prg
+@IF "%TARGET%" == "NOJUKEBOX" GOTO NOJUKEBOX
 
 @echo ======================== APPLE 1 JUKEBOX =================================================
-call kickc -includedir %TMS9918%\lib -targetdir %TMS9918%\kickc\ -t apple1_jukebox %TARGET%.c -o out\%TARGET%_apple1.prg -e
-call node %TMS9918%\tools\mkeprom out out\%TARGET%_apple1.bin
+call kickc -includedir %TMS9918%\lib -targetdir %TMS9918%\kickc\ -t apple1_jukebox %FNAME%.c -o out\%FNAME%.prg -e
+call node %TMS9918%\tools\mkeprom out out\%FNAME%_jukebox.bin
 
+:NOJUKEBOX
 @echo ======================== APPLE 1 =================================================
-call kickc -includedir %TMS9918%\lib -targetdir %TMS9918%\kickc\ -t apple1 %TARGET%.c -o out\%TARGET%_apple1.prg -e
-copy out\%TARGET%.prg out\%TARGET%_apple1.prg
+call kickc -includedir %TMS9918%\lib -targetdir %TMS9918%\kickc\ -t apple1 %FNAME%.c -o out\%FNAME%.prg -e -Xassembler="-symbolfile"
+call node %TMS9918%\tools\prg2bin -i out\%FNAME%.prg -o out\%FNAME%.bin
+call node %TMS9918%\tools\prg2woz -i out\%FNAME%.prg -o out\%FNAME%.woz
 
 @rem clean up files
 @del out\apple1_codeseg.bin
@@ -22,4 +22,3 @@ copy out\%TARGET%.prg out\%TARGET%_apple1.prg
 @del out\*.klog
 @del out\*.vs
 @del out\*.dbg
-@del out\%TARGET%.prg
